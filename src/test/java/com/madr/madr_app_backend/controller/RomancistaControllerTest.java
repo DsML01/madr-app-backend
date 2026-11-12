@@ -115,24 +115,24 @@ public class RomancistaControllerTest {
     }
 
     @Test
-    @DisplayName("PUT /romancistas/{id} - Deve retornar 200 OK ao atualizar com sucesso")
+    @DisplayName("PATCH /romancistas/{id} - Deve retornar 200 OK ao atualizar com sucesso")
     void deveAtualizarComSucesso() throws Exception {
         RomancistRequest request = new RomancistRequest("Machado Atualizado");
         when(service.atualizar(eq(1L), any(RomancistRequest.class)))
                 .thenReturn(new RomancistResponse(1L, "machado atualizado"));
-        mockMvc.perform(put("/romancistas/1")
+        mockMvc.perform(patch("/romancistas/1")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.nome").value("machado atualizado"));
     }
     @Test
-    @DisplayName("PUT /romancistas/{id} - Deve retornar 404 Not Found se tentar atualizar id inexistente")
+    @DisplayName("PATCH /romancistas/{id} - Deve retornar 404 Not Found se tentar atualizar id inexistente")
     void deveRetornar404AoAtualizarInexistente() throws Exception {
         RomancistRequest request = new RomancistRequest("Autor Qualquer");
         when(service.atualizar(eq(99L), any(RomancistRequest.class)))
                 .thenThrow(new RomancistaNotFoundException(99L));
-        mockMvc.perform(put("/romancistas/99")
+        mockMvc.perform(patch("/romancistas/99")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isNotFound());

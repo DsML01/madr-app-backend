@@ -70,7 +70,7 @@ public class RomancistaController {
             @ApiResponse(responseCode = "404", description = "Romancista não encontrado"),
             @ApiResponse(responseCode = "409", description = "Nome já em uso por outro romancista")
     })
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<RomancistResponse> atualizar(
             @PathVariable Long id,
             @RequestBody @Valid RomancistRequest request) {
