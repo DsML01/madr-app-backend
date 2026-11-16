@@ -8,6 +8,7 @@ import com.madr.madr_app_backend.model.Romancista;
 import com.madr.madr_app_backend.util.StringSanitizer;
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -18,6 +19,7 @@ public class RomancistaService {
 
     private final Map<Long, Romancista> repositorio = new ConcurrentHashMap<>();
     private final AtomicLong idGerador = new AtomicLong(1);
+    private final Object writeLock = new Object();
 
     private RomancistResponse toResponse(Romancista romancista) {
         return new RomancistResponse(romancista.getId(), romancista.getNome());
@@ -26,17 +28,20 @@ public class RomancistaService {
     public RomancistResponse criar(RomancistRequest request) {
         String nomeSanitizado = StringSanitizer.sanitize(request.nome());
 
-        boolean jaExiste = repositorio.values().stream().anyMatch(r -> r.getNome().equalsIgnoreCase(nomeSanitizado));
+        synchronized (writeLock) {
+            boolean jaExiste = repositorio.values().stream()
+                    .anyMatch(r -> r.getNome().equalsIgnoreCase(nomeSanitizado));
 
-        if (jaExiste) {
-            throw new RomancistaConflictException(nomeSanitizado);
+            if (jaExiste) {
+                throw new RomancistaConflictException(nomeSanitizado);
+            }
+
+            Long novoId = idGerador.getAndIncrement();
+            Romancista romancista = new Romancista(novoId, nomeSanitizado);
+            repositorio.put(novoId, romancista);
+
+            return toResponse(romancista);
         }
-
-        Long novoId = idGerador.getAndIncrement();
-        Romancista romancista = new Romancista(novoId, nomeSanitizado);
-        repositorio.put(novoId, romancista);
-
-        return toResponse(romancista);
     }
 
     public RomancistResponse buscarPorId(Long id) {
@@ -50,39 +55,46 @@ public class RomancistaService {
     }
 
     public List<RomancistResponse> listar(String nomeFiltro) {
-        return repositorio.values().stream().filter(r -> {
-            if (nomeFiltro == null || nomeFiltro.isBlank()) {
-                return true;
-            }
-            String filtroSanitizado = StringSanitizer.sanitize(nomeFiltro);
-            return r.getNome().contains(filtroSanitizado);
-        }).map(this::toResponse).toList();
+        String filtroSanitizado = (nomeFiltro == null || nomeFiltro.isBlank())
+                ? null
+                : StringSanitizer.sanitize(nomeFiltro);
+
+        return repositorio.values().stream()
+                .filter(r -> filtroSanitizado == null || r.getNome().contains(filtroSanitizado))
+                .sorted(Comparator.comparing(Romancista::getId))
+                .map(this::toResponse)
+                .toList();
     }
 
     public RomancistResponse atualizar(Long id, RomancistRequest request) {
-        Romancista existente = repositorio.get(id);
-
-        if(existente == null) {
-            throw new RomancistaNotFoundException(id);
-        }
-
         String novoNomeSanitizado = StringSanitizer.sanitize(request.nome());
 
-        boolean conflito = repositorio.values().stream().anyMatch(r -> !r.getId().equals(id)
-        && r.getNome().equalsIgnoreCase(novoNomeSanitizado));
+        synchronized (writeLock) {
+            Romancista existente = repositorio.get(id);
 
-        if (conflito) {
-            throw new RomancistaConflictException(novoNomeSanitizado);
+            if (existente == null) {
+                throw new RomancistaNotFoundException(id);
+            }
+
+            boolean conflito = repositorio.values().stream()
+                    .anyMatch(r -> !r.getId().equals(id)
+                            && r.getNome().equalsIgnoreCase(novoNomeSanitizado));
+
+            if (conflito) {
+                throw new RomancistaConflictException(novoNomeSanitizado);
+            }
+
+            Romancista atualizado = new Romancista(id, novoNomeSanitizado);
+            repositorio.put(id, atualizado);
+            return toResponse(atualizado);
         }
-
-        existente.setNome(novoNomeSanitizado);
-        return toResponse(existente);
     }
 
     public void excluir(Long id) {
-        if (!repositorio.containsKey(id)) {
-            throw new RomancistaNotFoundException(id);
+        synchronized (writeLock) {
+            if (repositorio.remove(id) == null) {
+                throw new RomancistaNotFoundException(id);
+            }
         }
-        repositorio.remove(id);
     }
 }
