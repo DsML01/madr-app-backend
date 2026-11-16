@@ -44,4 +44,21 @@ public class GlobalExceptionHandler{
 
         return problem;
     }
+
+    @ExceptionHandler(LivroNotFoundException.class)
+    public ProblemDetail handleLivroNotFound(LivroNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Livro não encontrado");
+        problem.setType(URI.create("https://madr.com/errors/not-found"));
+        return problem;
+    }
+
+    @ExceptionHandler(LivroConflictException.class)
+    public ProblemDetail handleLivroConflict(LivroConflictException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conflito de dados");
+        problem.setType(URI.create("https://madr.com/errors/conflict"));
+
+        return problem;
+    }
 }
