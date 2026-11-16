@@ -1,5 +1,6 @@
 package com.madr.madr_app_backend.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
@@ -8,8 +9,12 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
-import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler{
@@ -36,10 +41,15 @@ public class GlobalExceptionHandler{
         problem.setTitle("Erro de validação");
         problem.setType(URI.create("https://madr.com/errors/bad-request"));
 
-        Map<String, String> invalidFields = new HashMap<>();
-        for (FieldError fieldError : ex.getBindingResult().getFieldErrors()){
-            invalidFields.put(fieldError.getField(), fieldError.getDefaultMessage());
-        }
+        Map<String, Set<String>> invalidFields = ex.getBindingResult().getFieldErrors().stream()
+                .collect(Collectors.groupingBy(
+                        FieldError::getField,
+                        TreeMap::new,
+                        Collectors.mapping(
+                                error -> Objects.requireNonNullElse(error.getDefaultMessage(), "Valor inválido"),
+                                Collectors.toCollection(TreeSet::new)
+                        )
+                ));
         problem.setProperty("invalidFields", invalidFields);
 
         return problem;
@@ -59,6 +69,17 @@ public class GlobalExceptionHandler{
         problem.setTitle("Conflito de dados");
         problem.setType(URI.create("https://madr.com/errors/conflict"));
 
+        return problem;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Operação não permitida pois viola restrição de integridade no banco de dados"
+        );
+        problem.setTitle("Conflito de dados");
+        problem.setType(URI.create("https://madr.com/errors/conflict"));
         return problem;
     }
 }

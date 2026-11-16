@@ -1,5 +1,6 @@
 package com.madr.madr_app_backend.dto;
 
+import com.madr.madr_app_backend.util.StringSanitizer;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 
@@ -12,4 +13,8 @@ public record LivroPatchRequest(
 
         @Positive(message = "O id do romancista deve ser positivo")
         Long romancistaId
-) {}
+) {
+    public LivroPatchRequest {
+        titulo = StringSanitizer.sanitize(titulo);
+    }
+}

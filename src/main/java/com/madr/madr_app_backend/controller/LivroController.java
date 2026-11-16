@@ -38,7 +38,7 @@ public class LivroController {
     public ResponseEntity<LivroResponse> criar(@RequestBody @Valid LivroRequest request) {
         LivroResponse criado = service.criar(request);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+        URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{id}")
                 .buildAndExpand(criado.id())
                 .toUri();

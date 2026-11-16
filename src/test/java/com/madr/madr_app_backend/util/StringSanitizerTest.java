@@ -12,10 +12,11 @@ public class StringSanitizerTest {
     @ParameterizedTest(name = "Entrada: \"{0}\" -> Saída esperada: \"{1}\"")
     @CsvSource({
             "Machado de Assis, machado de assis",
-            "Manuel Bandeira, manuel bandeira",
-            "'Edgar Alan Poe ', edgar alan poe",
-            "Androides Sonham Com Ovelhas Elétricas?, androides sonham com ovelhas elétricas?",
-            "' breve história do tempo ', breve história do tempo"
+            "Manuel        Bandeira, manuel bandeira",
+            "'Edgar Alan Poe         ', edgar alan poe",
+            "Androides Sonham Com Ovelhas Elétricas?, androides sonham com ovelhas elétricas",
+            "'  breve  história  do tempo ', breve história do tempo",
+            "O mundo assombrado pelos demônios, o mundo assombrado pelos demônios"
     })
     @DisplayName("Deve sanitizar strings conforme a tabela do enunciado")
     void deveSanitiarNomesCorretamente(String entrada, String esperado){
