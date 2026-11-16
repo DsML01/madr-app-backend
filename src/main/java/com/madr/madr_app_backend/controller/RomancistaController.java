@@ -20,7 +20,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/romancistas")
+@RequestMapping("/romancista")
 @Tag(name = "Romancistas", description = "Endpoints para gerenciamento do acervo de romancistas")
 public class RomancistaController {
 
@@ -40,7 +40,7 @@ public class RomancistaController {
     public ResponseEntity<RomancistResponse> criar(@RequestBody @Valid RomancistRequest request) {
         RomancistResponse criado = service.criar(request);
 
-        URI location = ServletUriComponentsBuilder.fromCurrentRequest()
+        URI location = ServletUriComponentsBuilder.fromCurrentRequestUri()
                 .path("/{id}").buildAndExpand(criado.id()).toUri();
 
         return ResponseEntity.created(location).body(criado);
