@@ -1,5 +1,6 @@
 package com.madr.madr_app_backend.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
@@ -51,6 +52,34 @@ public class GlobalExceptionHandler{
                 ));
         problem.setProperty("invalidFields", invalidFields);
 
+        return problem;
+    }
+
+    @ExceptionHandler(LivroNotFoundException.class)
+    public ProblemDetail handleLivroNotFound(LivroNotFoundException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setTitle("Livro não encontrado");
+        problem.setType(URI.create("https://madr.com/errors/not-found"));
+        return problem;
+    }
+
+    @ExceptionHandler(LivroConflictException.class)
+    public ProblemDetail handleLivroConflict(LivroConflictException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+        problem.setTitle("Conflito de dados");
+        problem.setType(URI.create("https://madr.com/errors/conflict"));
+
+        return problem;
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.CONFLICT,
+                "Operação não permitida pois viola restrição de integridade no banco de dados"
+        );
+        problem.setTitle("Conflito de dados");
+        problem.setType(URI.create("https://madr.com/errors/conflict"));
         return problem;
     }
 }

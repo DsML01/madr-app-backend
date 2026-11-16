@@ -4,97 +4,83 @@ import com.madr.madr_app_backend.dto.RomancistRequest;
 import com.madr.madr_app_backend.dto.RomancistResponse;
 import com.madr.madr_app_backend.exception.RomancistaConflictException;
 import com.madr.madr_app_backend.exception.RomancistaNotFoundException;
+import com.madr.madr_app_backend.mapper.RomancistaMapper;
 import com.madr.madr_app_backend.model.Romancista;
+import com.madr.madr_app_backend.repository.RomancistaRepository;
 import com.madr.madr_app_backend.util.StringSanitizer;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class RomancistaService {
 
-    private final Map<Long, Romancista> repositorio = new ConcurrentHashMap<>();
-    private final AtomicLong idGerador = new AtomicLong(1);
-    private final Object writeLock = new Object();
+    private final RomancistaRepository repository;
+    private final RomancistaMapper mapper;
 
-    private RomancistResponse toResponse(Romancista romancista) {
-        return new RomancistResponse(romancista.getId(), romancista.getNome());
+    public RomancistaService(RomancistaRepository repository, RomancistaMapper mapper) {
+        this.repository = repository;
+        this.mapper = mapper;
     }
 
+    @Transactional
     public RomancistResponse criar(RomancistRequest request) {
         String nomeSanitizado = StringSanitizer.sanitize(request.nome());
 
-        synchronized (writeLock) {
-            boolean jaExiste = repositorio.values().stream()
-                    .anyMatch(r -> r.getNome().equalsIgnoreCase(nomeSanitizado));
-
-            if (jaExiste) {
-                throw new RomancistaConflictException(nomeSanitizado);
-            }
-
-            Long novoId = idGerador.getAndIncrement();
-            Romancista romancista = new Romancista(novoId, nomeSanitizado);
-            repositorio.put(novoId, romancista);
-
-            return toResponse(romancista);
+        if (repository.existsByNome(nomeSanitizado)) {
+            throw new RomancistaConflictException(nomeSanitizado);
         }
+
+        Romancista romancista = mapper.toEntity(request);
+        romancista.setNome(nomeSanitizado);
+
+        Romancista salvo = repository.save(romancista);
+        return mapper.toResponse(salvo);
     }
 
+    @Transactional(readOnly = true)
     public RomancistResponse buscarPorId(Long id) {
-        Romancista romancista = repositorio.get(id);
-
-        if (romancista == null) {
-            throw new RomancistaNotFoundException(id);
-        }
-
-        return toResponse(romancista);
+        Romancista romancista = repository.findById(id)
+                .orElseThrow(() -> new RomancistaNotFoundException(id));
+        return mapper.toResponse(romancista);
     }
 
+    @Transactional(readOnly = true)
     public List<RomancistResponse> listar(String nomeFiltro) {
-        String filtroSanitizado = (nomeFiltro == null || nomeFiltro.isBlank())
-                ? null
-                : StringSanitizer.sanitize(nomeFiltro);
-
-        return repositorio.values().stream()
-                .filter(r -> filtroSanitizado == null || r.getNome().contains(filtroSanitizado))
-                .sorted(Comparator.comparing(Romancista::getId))
-                .map(this::toResponse)
-                .toList();
+        if (nomeFiltro == null || nomeFiltro.isBlank()) {
+            return repository.findAll(Sort.by("id")).stream()
+                    .map(mapper::toResponse)
+                    .toList();
+        }
+        String filtroSanitizado = StringSanitizer.sanitize(nomeFiltro);
+        return repository.findByNomeContainingIgnoreCase(filtroSanitizado, Pageable.unpaged(Sort.by("id")))
+                .map(mapper::toResponse)
+                .getContent();
     }
 
+    @Transactional
     public RomancistResponse atualizar(Long id, RomancistRequest request) {
+        Romancista existente = repository.findById(id)
+                .orElseThrow(() -> new RomancistaNotFoundException(id));
+
         String novoNomeSanitizado = StringSanitizer.sanitize(request.nome());
 
-        synchronized (writeLock) {
-            Romancista existente = repositorio.get(id);
-
-            if (existente == null) {
-                throw new RomancistaNotFoundException(id);
-            }
-
-            boolean conflito = repositorio.values().stream()
-                    .anyMatch(r -> !r.getId().equals(id)
-                            && r.getNome().equalsIgnoreCase(novoNomeSanitizado));
-
-            if (conflito) {
-                throw new RomancistaConflictException(novoNomeSanitizado);
-            }
-
-            Romancista atualizado = new Romancista(id, novoNomeSanitizado);
-            repositorio.put(id, atualizado);
-            return toResponse(atualizado);
+        if (repository.existsByNomeAndIdNot(novoNomeSanitizado, id)) {
+            throw new RomancistaConflictException(novoNomeSanitizado);
         }
+
+        existente.setNome(novoNomeSanitizado);
+        return mapper.toResponse(repository.save(existente));
     }
 
+    @Transactional
     public void excluir(Long id) {
-        synchronized (writeLock) {
-            if (repositorio.remove(id) == null) {
-                throw new RomancistaNotFoundException(id);
-            }
+        if (!repository.existsById(id)) {
+            throw new RomancistaNotFoundException(id);
         }
+        repository.deleteById(id);
     }
 }
